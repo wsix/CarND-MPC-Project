@@ -22,7 +22,7 @@ Self-Driving Car Engineer Nanodegree Program
   * Mac: `brew install ipopt`
   * Linux
     * You will need a version of Ipopt 3.12.1 or higher. The version available through `apt-get` is 3.11.x. If you can get that version to work great but if not there's a script `install_ipopt.sh` that will install Ipopt. You just need to download the source from the Ipopt [releases page](https://www.coin-or.org/download/source/Ipopt/) or the [Github releases](https://github.com/coin-or/Ipopt/releases) page.
-    * Then call `install_ipopt.sh` with the source directory as the first argument, ex: `bash install_ipopt.sh Ipopt-3.12.1`. 
+    * Then call `install_ipopt.sh` with the source directory as the first argument, ex: `bash install_ipopt.sh Ipopt-3.12.1`.
   * Windows: TODO. If you can use the Linux subsystem and follow the Linux instructions.
 * [CppAD](https://www.coin-or.org/CppAD/)
   * Mac: `brew install cppad`
@@ -49,58 +49,44 @@ is the vehicle starting offset of a straight line (reference). If the MPC implem
 2. The `lake_track_waypoints.csv` file has the waypoints of the lake track. You could use this to fit polynomials and points and see of how well your model tracks curve. NOTE: This file might be not completely in sync with the simulator so your solution should NOT depend on it.
 3. For visualization this C++ [matplotlib wrapper](https://github.com/lava/matplotlib-cpp) could be helpful.
 
-## Editor Settings
+## Details
 
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
+---
+### The Model
 
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
+**state**:
 
-## Code Style
+In this project, I used the Kinematic Model, so the state includes `x`, `y`, `psi`, `v`, `cte`, `epsi`, which are implemented at line 126-127 in main.cpp.
 
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
+**actuators**:
 
-## Project Instructions and Rubric
+the steering wheel `delta` and acceleration `a`
 
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
+**update equations**:
 
-More information is only accessible by people who are already enrolled in Term 2
-of CarND. If you are enrolled, see [the project page](https://classroom.udacity.com/nanodegrees/nd013/parts/40f38239-66b6-46ec-ae68-03afd8a601c8/modules/f1820894-8322-4bb3-81aa-b26b3c6dcbaf/lessons/b1ff3be0-c904-438e-aad3-2b5379f0e0c3/concepts/1a2255a0-e23c-44cf-8d41-39b8a3c8264a)
-for instructions and the project rubric.
+``` Python
+next_x = last_x + last_v * cos(last_psi) * dt;
+next_y = last_x + last_v * sin(last_psi) * dt;
+next_psi = last_psi + last_v / Lf * a * dt;
+next_v = last_v + a * dt;
+next_cte = poly(last_x) - last_y + last_v * sin(last_epsi) * dt;
+next_epsi = last_psi - last_des_psi + last_v / Lf * a * dt;
+```
 
-## Hints!
+### Timestep Length and Elapsed Duration (N & dt)
 
-* You don't have to follow this directory structure, but if you do, your work
-  will span all of the .cpp files here. Keep an eye out for TODOs.
+`N` is the number of timesteps in the horizon. `dt` is how much time elapses between actuations. When the speed of the car is high, the length of every timestep will increase. So we should reduce timestep length `dt` in this condition.
 
-## Call for IDE Profiles Pull Requests
+At first, I set the speed below 40, and I found that `N=10, dt=0.25` can keep the car driving on the road. Then I change the speed to 60, it turned out that `N=10, dt=25` can't word well. Then I modified `N` and `dt` until the car can keep driving on the road. Finally, I decided `N=16` and `dt=0.15`.
 
-Help your fellow students!
+### Polynomial Fitting and MPC Preprocessing
 
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to we ensure
-that students don't feel pressured to use one IDE or another.
+Before fitting polynomials, the waypoints are transformed from map system into vehicle system. These codes are declared at line 108-119 in main.cpp. Then I used these waypoints to fit polynomials, the code is located in line 121.
 
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
+In this map, I use quadratic polynomial to fit the route of car. It can fit waypoints well in this project.
 
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
+### Model Predictive Control with Latency
 
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
+To deal with latency, I have tried a method which is preprocessing the state before fitting polynomials: Using the current state to update itself with `timestep=0.1`, the code is at line 102-106 in main.cpp. But it will lead the car tumbling around and touching the road edges. So finally, I decided to remove the code.
 
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
-
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
+In this project, it still work well without any problem when I just ignored the latency. Maybe the influence of 100 millisecond latency is not enough to change the state of the car too much with low speed. So finally, I didn't deal with latency in final model.

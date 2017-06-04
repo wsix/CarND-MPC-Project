@@ -17,6 +17,8 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
+const double Lf = 2.67;
+
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
 // else the empty string "" will be returned.
@@ -71,7 +73,9 @@ int main() {
   // MPC is initialized here!
   MPC mpc;
 
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  double latency = 0.10;
+
+  h.onMessage([&mpc, &latency](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -92,6 +96,14 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double steering_angle = j[1]["steering_angle"];
+          double throttle = j[1]["throttle"];
+
+          // handle the latency
+          // px = px + v * cos(psi) * latency;
+          // py = py + v * sin(psi) * latency;
+          // psi = psi + v / Lf * steering_angle * latency;
+          // v = v + throttle * latency;
 
           double* ptsx_ptr = &ptsx[0];
           double* ptsy_ptr = &ptsy[0];
@@ -106,7 +118,7 @@ int main() {
             ptsyXd[i] = x * sin(0-psi) + y * cos(0-psi);
           }
 
-          auto coeffs = polyfit(ptsxXd, ptsyXd, 1);
+          auto coeffs = polyfit(ptsxXd, ptsyXd, 2);
 
           double cte = polyeval(coeffs, 0) - py;
           double epsi = -atan(coeffs[1]);

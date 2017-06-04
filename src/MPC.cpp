@@ -11,15 +11,14 @@
 using CppAD::AD;
 
 // TODO: Set the timestep length and duration
-size_t N = 10;
-double dt = 0.25;
+size_t N = 16;
+double dt = 0.15;
 
 int cte_factor = 300;
 int epsi_factor = 100;
 int v_factor = 1;
 int current_delta_factor = 50;
 int current_a_factor = 10;
-int diff_delta_factor = 30;
 int diff_a_factor = 10;
 
 // This value assumes the model presented in the classroom is used.
@@ -38,7 +37,7 @@ double ref_cte = 0;
 double ref_epsi = 0;
 // NOTE: feel free to play around with this
 // or do something completely different
-double ref_v = 40;
+double ref_v = 60;
 
 size_t x_start = 0;
 size_t y_start = x_start + N;
@@ -81,7 +80,6 @@ class FG_eval {
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += diff_delta_factor * CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
       fg[0] += diff_a_factor * CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
@@ -121,8 +119,8 @@ class FG_eval {
       AD<double> delta0 = vars[delta_start + i];
       AD<double> a0 = vars[a_start + i];
 
-      AD<double> f0 = coeffs[0] + coeffs[1] * x0;
-      AD<double> psides0 = CppAD::atan(coeffs[1]);
+      AD<double> f0 = coeffs[0] + coeffs[1] * x0 + coeffs[2] * pow(x0, 2);
+      AD<double> psides0 = CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0);
       // Here's `x` to get you started.
       // The idea here is to constraint this value to be 0.
       //
